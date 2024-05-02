@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Processor interface {
@@ -27,6 +28,26 @@ type ByteCountProcessor struct {
 
 type LineCountProcessor struct {
 	ValueGetter
+}
+
+type WordCountProcessor struct {
+	ValueGetter
+}
+
+func (processor *WordCountProcessor) process(file *os.File) error {
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		words := strings.Fields(scanner.Text())
+		processor.value += len(words)
+	}
+
+	// Check for scanner errors
+	if err := scanner.Err(); err != nil {
+		return errors.New("unable to parse file")
+	}
+	return nil
+
 }
 
 func (processor *LineCountProcessor) process(file *os.File) error {
@@ -56,12 +77,14 @@ func (processor *ByteCountProcessor) process(file *os.File) error {
 func main() {
 	var countBytesFlag bool
 	var countLinesFlag bool
+	var countWordsFlag bool
 	var fileName string
 	var file *os.File
 	defer file.Close()
 
 	flag.BoolVar(&countBytesFlag, "c", false, "Count Bytes Flag")
 	flag.BoolVar(&countLinesFlag, "l", false, "Count Lines Flag")
+	flag.BoolVar(&countWordsFlag, "w", false, "Count Words Flag")
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		fmt.Print("Filename missing!")
@@ -82,6 +105,10 @@ func main() {
 	if countLinesFlag {
 		processor = &LineCountProcessor{}
 	}
+	if countWordsFlag {
+		processor = &WordCountProcessor{}
+	}
+
 	err = processor.process(file)
 
 	if err != nil {
