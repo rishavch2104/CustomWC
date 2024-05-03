@@ -40,6 +40,10 @@ type CharacterCountProcessor struct {
 }
 
 func (processor *CharacterCountProcessor) process(file *os.File) error {
+	err := resetFile(file)
+	if err != nil {
+		return err
+	}
 	reader := bufio.NewReader(file)
 	for {
 		_, _, err := reader.ReadRune()
@@ -56,6 +60,10 @@ func (processor *CharacterCountProcessor) process(file *os.File) error {
 }
 
 func (processor *WordCountProcessor) process(file *os.File) error {
+	err := resetFile(file)
+	if err != nil {
+		return err
+	}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -71,6 +79,10 @@ func (processor *WordCountProcessor) process(file *os.File) error {
 }
 
 func (processor *LineCountProcessor) process(file *os.File) error {
+	err := resetFile(file)
+	if err != nil {
+		return err
+	}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -84,6 +96,7 @@ func (processor *LineCountProcessor) process(file *os.File) error {
 }
 
 func (processor *ByteCountProcessor) process(file *os.File) error {
+
 	fileInfo, err := file.Stat()
 	if err != nil {
 		return errors.New("unable to parse file")
@@ -94,6 +107,13 @@ func (processor *ByteCountProcessor) process(file *os.File) error {
 	return nil
 }
 
+func resetFile(file *os.File) error {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return errors.New("Error rewinding temporary file:")
+	}
+	return nil
+}
+
 func main() {
 	var countBytesFlag bool
 	var countLinesFlag bool
@@ -101,6 +121,7 @@ func main() {
 	var countCharactersFlag bool
 	var fileName string
 	var file *os.File
+	var err error
 	defer file.Close()
 
 	flag.BoolVar(&countBytesFlag, "c", false, "Count Bytes Flag")
@@ -109,17 +130,25 @@ func main() {
 	flag.BoolVar(&countCharactersFlag, "m", false, "Count Characters Flag")
 	flag.Parse()
 	if len(flag.Args()) == 0 {
-		fmt.Print("Filename missing!")
-		return
-	}
-	fileName = flag.Args()[0]
-	file, err := os.Open(fileName)
+		file, err = os.CreateTemp("", "stdin-")
+		if err != nil {
+			fmt.Println("Error creating temporary file:", err)
+			return
+		}
+		_, err = io.Copy(file, os.Stdin)
+		if err != nil {
+			fmt.Println("Error copying data to temporary file:", err)
+			return
+		}
+	} else {
+		fileName = flag.Args()[0]
+		file, err = os.Open(fileName)
+		if err != nil {
+			fmt.Print("File not found")
+			return
+		}
 
-	if err != nil {
-		fmt.Print("File not found")
-		return
 	}
-
 	var processors []Processor
 	if countBytesFlag {
 		processors = append(processors, &ByteCountProcessor{})
@@ -141,7 +170,6 @@ func main() {
 	}
 
 	var output string
-
 	for _, processor := range processors {
 		err = processor.process(file)
 		if err != nil {
