@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -32,6 +33,26 @@ type LineCountProcessor struct {
 
 type WordCountProcessor struct {
 	ValueGetter
+}
+
+type CharacterCountProcessor struct {
+	ValueGetter
+}
+
+func (processor *CharacterCountProcessor) process(file *os.File) error {
+	reader := bufio.NewReader(file)
+	for {
+		_, _, err := reader.ReadRune()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		processor.value++
+
+	}
+
+	return nil
 }
 
 func (processor *WordCountProcessor) process(file *os.File) error {
@@ -78,6 +99,7 @@ func main() {
 	var countBytesFlag bool
 	var countLinesFlag bool
 	var countWordsFlag bool
+	var countCharactersFlag bool
 	var fileName string
 	var file *os.File
 	defer file.Close()
@@ -85,6 +107,7 @@ func main() {
 	flag.BoolVar(&countBytesFlag, "c", false, "Count Bytes Flag")
 	flag.BoolVar(&countLinesFlag, "l", false, "Count Lines Flag")
 	flag.BoolVar(&countWordsFlag, "w", false, "Count Words Flag")
+	flag.BoolVar(&countCharactersFlag, "m", false, "Count Characters Flag")
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		fmt.Print("Filename missing!")
@@ -107,6 +130,9 @@ func main() {
 	}
 	if countWordsFlag {
 		processor = &WordCountProcessor{}
+	}
+	if countCharactersFlag {
+		processor = &CharacterCountProcessor{}
 	}
 
 	err = processor.process(file)
