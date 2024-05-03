@@ -63,7 +63,6 @@ func (processor *WordCountProcessor) process(file *os.File) error {
 		processor.value += len(words)
 	}
 
-	// Check for scanner errors
 	if err := scanner.Err(); err != nil {
 		return errors.New("unable to parse file")
 	}
@@ -121,26 +120,37 @@ func main() {
 		return
 	}
 
-	var processor Processor
+	var processors []Processor
 	if countBytesFlag {
-		processor = &ByteCountProcessor{}
+		processors = append(processors, &ByteCountProcessor{})
 	}
 	if countLinesFlag {
-		processor = &LineCountProcessor{}
+		processors = append(processors, &LineCountProcessor{})
 	}
 	if countWordsFlag {
-		processor = &WordCountProcessor{}
+		processors = append(processors, &WordCountProcessor{})
 	}
 	if countCharactersFlag {
-		processor = &CharacterCountProcessor{}
+		processors = append(processors, &CharacterCountProcessor{})
 	}
 
-	err = processor.process(file)
-
-	if err != nil {
-		fmt.Print("Unable to print file")
-		return
+	if len(processors) == 0 {
+		processors = append(processors, &LineCountProcessor{})
+		processors = append(processors, &WordCountProcessor{})
+		processors = append(processors, &ByteCountProcessor{})
 	}
-	fmt.Printf("%d %s \n", processor.getValue(), fileName)
+
+	var output string
+
+	for _, processor := range processors {
+		err = processor.process(file)
+		if err != nil {
+			fmt.Print("Unable to print file")
+			return
+		}
+		output = output + fmt.Sprintf("%d", processor.getValue()) + "\t"
+	}
+
+	fmt.Printf("%s %s \n", output, fileName)
 
 }
